@@ -24,6 +24,19 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
+    const database = client.db('mastery-karate-db');
+    const classes = database.collection('classes');
+    const users = database.collection('users');
+
+    app.get('/classes', async(req, res) => {
+        const result = await classes.find().toArray();
+        res.send(result);
+    })
+    // get all users
+    app.get('/instructors', async(req, res) => {
+      const result = await users.find({role:"instructor"}).toArray();
+      res.send(result)
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
