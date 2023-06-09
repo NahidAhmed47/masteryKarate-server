@@ -93,14 +93,42 @@ async function run() {
     app.patch('/allclass/:id', async(req, res) => {
       const id = req.params.id;
       const {text} = req.body;
-      console.log(id, text)
-      const updatedClass = {
+      if(text === 'denied' || text === 'approved'){
+        const updatedClass = {
+          $set: {
+            status: text,
+          }
+        }
+        const result = await classes.updateOne({_id: new ObjectId(id)}, updatedClass);
+        res.send(result)
+      }
+      else{
+        const updatedClass = {
+          $set: {
+            feedback: text,
+          }
+        }
+        const result = await classes.updateOne({_id: new ObjectId(id)}, updatedClass);
+        res.send(result)
+      }
+      
+    })
+    // update user role
+    app.put('/users/:id', async(req, res) => {
+      const id = req.params.id;
+      const {roleText} = req.body;
+      const updatedUser = {
         $set: {
-          status: text,
+          role: roleText,
         }
       }
-      const result = await classes.updateOne({_id: new ObjectId(id)}, updatedClass);
+      const result = await users.updateOne({_id: new ObjectId(id)}, updatedUser);
       res.send(result)
+    })
+    // user delete
+    app.delete('/users/:id', async(req, res)=>{
+      const result = await users.deleteOne({_id: new ObjectId(req.params.id)})
+      res.send(result);
     })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
