@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json());
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ze0g6j8.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -28,10 +28,10 @@ async function run() {
     const classes = database.collection('classes');
     const users = database.collection('users');
 
-    app.get('/classes', async(req, res) => {
-        const result = await classes.find().toArray();
-        res.send(result);
-    })
+    // app.get('/classes', async(req, res) => {
+    //     const result = await classes.find().toArray();
+    //     res.send(result);
+    // })
     // get all users
     app.get('/instructors', async(req, res) => {
       const result = await users.find({role:"instructor"}).toArray();
@@ -56,8 +56,14 @@ async function run() {
     // get approved classes
     app.get('/allclass/:status', async(req, res) => {
       const status = req.params.status;
-      const result = await classes.find({status: status}).toArray();
+      if(status === 'all'){
+        const result = await classes.find().toArray();
+        res.send(result)
+      }
+      else{
+        const result = await classes.find({status: status}).toArray();
       res.send(result)
+      }
     })
     // get all users
     app.get('/users', async(req, res) => {
@@ -81,6 +87,19 @@ async function run() {
       const newClass = req.body;
       console.log(newClass)
       const result = await classes.insertOne(newClass);
+      res.send(result)
+    })
+    // update class status
+    app.patch('/allclass/:id', async(req, res) => {
+      const id = req.params.id;
+      const {text} = req.body;
+      console.log(id, text)
+      const updatedClass = {
+        $set: {
+          status: text,
+        }
+      }
+      const result = await classes.updateOne({_id: new ObjectId(id)}, updatedClass);
       res.send(result)
     })
     // Send a ping to confirm a successful connection
