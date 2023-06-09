@@ -37,6 +37,16 @@ async function run() {
       const result = await users.find({role:"instructor"}).toArray();
       res.send(result)
     })
+    // find user role
+    app.get('/role/:email', async(req, res) => {
+      const email = req.params.email;
+      const user = await users.findOne({email: email});
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      const {role} = user;
+      res.send({role})
+    })
     // saved user when first time registration
     app.post('/users', async(req, res) => {
       const user = req.body;
@@ -48,6 +58,13 @@ async function run() {
         const result = await users.insertOne(user);
         res.send(result)
       }
+    })
+    // add class 
+    app.post('/classes', async(req, res) => {
+      const newClass = req.body;
+      console.log(newClass)
+      const result = await classes.insertOne(newClass);
+      res.send(result)
     })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
