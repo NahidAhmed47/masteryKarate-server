@@ -47,6 +47,23 @@ async function run() {
       const {role} = user;
       res.send({role})
     })
+    // get instructor classes
+    app.get('/classes/:email', async(req, res) => {
+      const email = req.params.email;
+      const result = await classes.find({instructor_email: email}).toArray();
+      res.send(result);
+    })
+    // get approved classes
+    app.get('/allclass/:status', async(req, res) => {
+      const status = req.params.status;
+      const result = await classes.find({status: status}).toArray();
+      res.send(result)
+    })
+    // get all users
+    app.get('/users', async(req, res) => {
+      const result = await users.find().toArray();
+      res.send(result);
+    })
     // saved user when first time registration
     app.post('/users', async(req, res) => {
       const user = req.body;
