@@ -3,10 +3,26 @@ const app = express();
 const cors = require('cors');
 require('dotenv').config()
 const port = process.env.PORT || 5000;
+var jwt = require('jsonwebtoken');
 
 app.use(cors());
 app.use(express.json());
 
+// token verify middleware
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(401).send({ error: true, message: 'unauthorized access' });
+  }
+  const token = authorization.split(' ')[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      res.status(401).send({ error: true, message: 'unauthorized access' });
+    }
+    req.decoded = decoded;
+    next();
+  })
+}
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ze0g6j8.mongodb.net/?retryWrites=true&w=majority`;
@@ -17,28 +33,24 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  maxPoolSize: 10
 });
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
     const database = client.db('mastery-karate-db');
     const classes = database.collection('classes');
     const users = database.collection('users');
-
-    // app.get('/classes', async(req, res) => {
-    //     const result = await classes.find().toArray();
-    //     res.send(result);
-    // })
     // get all users
     app.get('/instructors', async (req, res) => {
       const result = await users.find({ role: "instructor" }).toArray();
       res.send(result)
     })
     // find user role
-    app.get('/role/:email', async (req, res) => {
+    app.get('/role/:email',verifyJWT, async (req, res) => {
       const email = req.params.email;
       const user = await users.findOne({ email: email });
       if (!user) {
@@ -74,6 +86,12 @@ async function run() {
     app.get('/users/:email', async (req, res) => {
       const result = await users.findOne({email: req.params.email});
       res.send(result);
+    })
+    // send jwt token
+    app.post('/jwt', (req, res) => {
+      const email = req.body.email;
+      const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' });
+      res.send({ token });
     })
     // saved user when first time registration
     app.post('/users', async (req, res) => {
@@ -181,6 +199,21 @@ async function run() {
       }
       const result = await users.updateOne({email: email}, updatedStudent);
       res.send(result)
+    })
+    // update instructor details when add new class
+    app.put('/instructors/:email', async(req, res)=>{
+      const email = req.params.email;
+      const {name} = req.body;
+      console.log(email, name)
+      const instructor = await users.findOne({email: email});
+      const updatedInfo = {
+        $set:{
+          name_of_classes: [...instructor.name_of_classes, name],
+          number_of_classes: parseInt(instructor.number_of_classes) + 1,
+        }
+      }
+      const result = await users.updateOne({email: email}, updatedInfo);
+      res.send(result);
     })
     // user delete
     app.delete('/users/:id', async (req, res) => {
