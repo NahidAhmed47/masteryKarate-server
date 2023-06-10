@@ -44,6 +44,24 @@ async function run() {
     const database = client.db('mastery-karate-db');
     const classes = database.collection('classes');
     const users = database.collection('users');
+    // verify Instructor middleware 
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await users.findOne({email: email});
+      if (user?.role !== 'instructor') {
+        return res.status(403).send({ error: true, message: 'forbidden message' });
+      }
+      next();
+    }
+    // verify Admin middleware 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await users.findOne({email: email});
+      if (user?.role !== 'admin') {
+        return res.status(403).send({ error: true, message: 'forbidden message' });
+      }
+      next();
+    }
     // get all users
     app.get('/instructors', async (req, res) => {
       const result = await users.find({ role: "instructor" }).toArray();
@@ -60,13 +78,13 @@ async function run() {
       res.send({ role })
     })
     // get instructor classes
-    app.get('/classes/:email', async (req, res) => {
+    app.get('/classes/:email', verifyJWT, verifyInstructor, async (req, res) => {
       const email = req.params.email;
       const result = await classes.find({ instructor_email: email }).toArray();
       res.send(result);
     })
     // get approved classes
-    app.get('/allclass/:status', async (req, res) => {
+    app.get('/allclass/:status', verifyJWT, verifyAdmin, async (req, res) => {
       const status = req.params.status;
       if (status === 'all') {
         const result = await classes.find().toArray();
@@ -78,7 +96,7 @@ async function run() {
       }
     })
     // get all users
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
       const result = await users.find().toArray();
       res.send(result);
     })
@@ -106,7 +124,7 @@ async function run() {
       }
     })
     // add class 
-    app.post('/classes', async (req, res) => {
+    app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
       const result = await classes.insertOne(newClass);
       res.send(result)
@@ -188,8 +206,8 @@ async function run() {
       const updateClass = await classes.updateOne({_id: new ObjectId(info.classid)}, updatedClass);
       res.send({updateInst, updateStudent, updateClass})
     })
-    // update selected classes
-    app.put('/selected-classes/:email', async(req, res)=>{
+    // update after delete selected classes
+    app.put('/selected-classes/:email', verifyJWT, async(req, res)=>{
       const newSelectedClasses = req.body;
       const email = req.params.email;
       const updatedStudent = {
