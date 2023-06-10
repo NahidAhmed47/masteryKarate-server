@@ -33,101 +33,140 @@ async function run() {
     //     res.send(result);
     // })
     // get all users
-    app.get('/instructors', async(req, res) => {
-      const result = await users.find({role:"instructor"}).toArray();
+    app.get('/instructors', async (req, res) => {
+      const result = await users.find({ role: "instructor" }).toArray();
       res.send(result)
     })
     // find user role
-    app.get('/role/:email', async(req, res) => {
+    app.get('/role/:email', async (req, res) => {
       const email = req.params.email;
-      const user = await users.findOne({email: email});
+      const user = await users.findOne({ email: email });
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-      const {role} = user;
-      res.send({role})
+      const { role } = user;
+      res.send({ role })
     })
     // get instructor classes
-    app.get('/classes/:email', async(req, res) => {
+    app.get('/classes/:email', async (req, res) => {
       const email = req.params.email;
-      const result = await classes.find({instructor_email: email}).toArray();
+      const result = await classes.find({ instructor_email: email }).toArray();
       res.send(result);
     })
     // get approved classes
-    app.get('/allclass/:status', async(req, res) => {
+    app.get('/allclass/:status', async (req, res) => {
       const status = req.params.status;
-      if(status === 'all'){
+      if (status === 'all') {
         const result = await classes.find().toArray();
         res.send(result)
       }
-      else{
-        const result = await classes.find({status: status}).toArray();
-      res.send(result)
+      else {
+        const result = await classes.find({ status: status }).toArray();
+        res.send(result)
       }
     })
     // get all users
-    app.get('/users', async(req, res) => {
+    app.get('/users', async (req, res) => {
       const result = await users.find().toArray();
       res.send(result);
     })
     // saved user when first time registration
-    app.post('/users', async(req, res) => {
+    app.post('/users', async (req, res) => {
       const user = req.body;
-      const existingUser = await users.findOne({email: user.email});
-      if(existingUser){
-        return res.send({message: 'user already registered'})
+      const existingUser = await users.findOne({ email: user.email });
+      if (existingUser) {
+        return res.send({ message: 'user already registered' })
       }
-      else{
+      else {
         const result = await users.insertOne(user);
         res.send(result)
       }
     })
     // add class 
-    app.post('/classes', async(req, res) => {
+    app.post('/classes', async (req, res) => {
       const newClass = req.body;
-      console.log(newClass)
       const result = await classes.insertOne(newClass);
       res.send(result)
     })
     // update class status
-    app.patch('/allclass/:id', async(req, res) => {
+    app.patch('/allclass/:id', async (req, res) => {
       const id = req.params.id;
-      const {text} = req.body;
-      if(text === 'denied' || text === 'approved'){
+      const { text } = req.body;
+      if (text === 'denied' || text === 'approved') {
         const updatedClass = {
           $set: {
             status: text,
           }
         }
-        const result = await classes.updateOne({_id: new ObjectId(id)}, updatedClass);
+        const result = await classes.updateOne({ _id: new ObjectId(id) }, updatedClass);
         res.send(result)
       }
-      else{
+      else {
         const updatedClass = {
           $set: {
             feedback: text,
           }
         }
-        const result = await classes.updateOne({_id: new ObjectId(id)}, updatedClass);
+        const result = await classes.updateOne({ _id: new ObjectId(id) }, updatedClass);
         res.send(result)
       }
-      
+
     })
     // update user role
-    app.put('/users/:id', async(req, res) => {
+    app.put('/users/:id', async (req, res) => {
       const id = req.params.id;
-      const {roleText} = req.body;
-      const updatedUser = {
-        $set: {
-          role: roleText,
+      const { roleText } = req.body;
+      if (roleText === 'instructor') {
+        const updatedUser = {
+          $set: {
+            role: roleText,
+            total_student: 0,
+            number_of_classes: 0,
+            name_of_classes: []
+          }
+        }
+        const result = await users.updateOne({ _id: new ObjectId(id) }, updatedUser);
+        res.send(result)
+      }
+      else {
+        const updatedUser = {
+          $set: {
+            role: roleText,
+          }
+        }
+        const result = await users.updateOne({ _id: new ObjectId(id) }, updatedUser);
+        res.send(result)
+      }
+    })
+    // select class by user
+    app.put('/select-class', async (req, res) => {
+      const info = req.query;
+      const instructor = await users.findOne({email: info.inst});
+      const student = await users.findOne({email: info.user});
+      const selectedClass = await classes.findOne({_id: new ObjectId(info.classid)});
+      const updatedInst = {
+        $set:{
+          total_student : parseInt(instructor.total_student)+1,
         }
       }
-      const result = await users.updateOne({_id: new ObjectId(id)}, updatedUser);
-      res.send(result)
+      const updateInst = await users.updateOne({email: info.inst}, updatedInst);
+      const updatedStudent = {
+        $set:{
+          selectedClasses : [...student?.selectedClasses, info.classid],
+        }
+      }
+      const updateStudent = await users.updateOne({email: info.user}, updatedStudent);
+      const updatedClass = {
+        $set: {
+          available_seats: parseInt(selectedClass?.available_seats) - 1,
+        }
+      }
+      const updateClass = await classes.updateOne({_id: new ObjectId(info.classid)}, updatedClass);
+      res.send({updateInst, updateStudent, updateClass})
     })
     // user delete
-    app.delete('/users/:id', async(req, res)=>{
-      const result = await users.deleteOne({_id: new ObjectId(req.params.id)})
+    app.delete('/users/:id', async (req, res) => {
+      const result = await users.deleteOne({ _id: new ObjectId(req.params.id) })
       res.send(result);
     })
     // Send a ping to confirm a successful connection
@@ -141,9 +180,9 @@ async function run() {
 run().catch(console.dir);
 
 
-app.get('/', (req, res)=>{
-    res.send('Server is listening');
+app.get('/', (req, res) => {
+  res.send('Server is listening');
 })
-app.listen(port, (req, res)=>{
-    console.log(`listening on ${port}`);
+app.listen(port, (req, res) => {
+  console.log(`listening on ${port}`);
 })
