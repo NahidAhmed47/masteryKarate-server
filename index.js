@@ -70,6 +70,11 @@ async function run() {
       const result = await users.find().toArray();
       res.send(result);
     })
+    // get specific user 
+    app.get('/users/:email', async (req, res) => {
+      const result = await users.findOne({email: req.params.email});
+      res.send(result);
+    })
     // saved user when first time registration
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -152,17 +157,30 @@ async function run() {
       const updateInst = await users.updateOne({email: info.inst}, updatedInst);
       const updatedStudent = {
         $set:{
-          selectedClasses : [...student?.selectedClasses, info.classid],
+          selectedClasses : student.selectedClasses ? [...student?.selectedClasses, info.classid] : [info.classid],
         }
       }
       const updateStudent = await users.updateOne({email: info.user}, updatedStudent);
       const updatedClass = {
         $set: {
           available_seats: parseInt(selectedClass?.available_seats) - 1,
+          number_of_students : parseInt(selectedClass.number_of_students)+1,
         }
       }
       const updateClass = await classes.updateOne({_id: new ObjectId(info.classid)}, updatedClass);
       res.send({updateInst, updateStudent, updateClass})
+    })
+    // update selected classes
+    app.put('/selected-classes/:email', async(req, res)=>{
+      const newSelectedClasses = req.body;
+      const email = req.params.email;
+      const updatedStudent = {
+        $set: {
+          selectedClasses: newSelectedClasses,
+        }
+      }
+      const result = await users.updateOne({email: email}, updatedStudent);
+      res.send(result)
     })
     // user delete
     app.delete('/users/:id', async (req, res) => {
