@@ -107,6 +107,12 @@ async function run() {
       const result = await users.findOne({ email: req.params.email });
       res.send(result);
     })
+    // get payment history 
+    app.get('/payment-history/:email', verifyJWT, async (req, res)=>{
+      const email = req.params.email;
+      const result = (await payments.find({email: email}).toArray()).reverse();
+      res.send(result);
+    })
     // get specific class by id
     app.get('/selected-classes/:id', verifyJWT, async (req, res) => {
       const id = req.params.id;
@@ -130,7 +136,7 @@ async function run() {
         { $sort: { enrolledClasses: -1 } },
         { $group: { _id: '$_id', enrolledClasses: { $push: '$enrolledClasses' } } },
       ]).toArray();
-      res.send(pipeline);
+      res.send(pipeline[0]?.enrolledClasses || []);
     })
     // saved user when first time registration
     app.post('/users', async (req, res) => {
