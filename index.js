@@ -49,7 +49,7 @@ async function run() {
     // verify Instructor middleware 
     const verifyInstructor = async (req, res, next) => {
       const email = req.decoded.email;
-      const user = await users.findOne({email: email});
+      const user = await users.findOne({ email: email });
       if (user?.role !== 'instructor') {
         return res.status(403).send({ error: true, message: 'forbidden message' });
       }
@@ -58,7 +58,7 @@ async function run() {
     // verify Admin middleware 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      const user = await users.findOne({email: email});
+      const user = await users.findOne({ email: email });
       if (user?.role !== 'admin') {
         return res.status(403).send({ error: true, message: 'forbidden message' });
       }
@@ -70,7 +70,7 @@ async function run() {
       res.send(result)
     })
     // find user role
-    app.get('/role/:email',verifyJWT, async (req, res) => {
+    app.get('/role/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const user = await users.findOne({ email: email });
       if (!user) {
@@ -103,22 +103,34 @@ async function run() {
       res.send(result);
     })
     // get specific user 
-    app.get('/users/:email',verifyJWT, async (req, res) => {
-      const result = await users.findOne({email: req.params.email});
+    app.get('/users/:email', verifyJWT, async (req, res) => {
+      const result = await users.findOne({ email: req.params.email });
       res.send(result);
     })
     // get specific class by id
-    app.get('/selected-classes/:id',verifyJWT, async (req,res) => {
+    app.get('/selected-classes/:id', verifyJWT, async (req, res) => {
       const id = req.params.id;
-      const singleClass = await classes.findOne({_id: new ObjectId(id)});
-      const {price, name, _id} = singleClass;
-      res.send({paymentClass:{price, name, _id}})
+      const singleClass = await classes.findOne({ _id: new ObjectId(id) });
+      const { price, name, _id } = singleClass;
+      res.send({ paymentClass: { price, name, _id } })
     })
     // send jwt token
     app.post('/jwt', (req, res) => {
       const email = req.body.email;
       const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' });
       res.send({ token });
+    })
+    // get enrolled classes
+    app.get('/enrolled/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const pipeline = await users.aggregate([
+        { $match: { email } },
+        { $project: { enrolledClasses: 1 } },
+        { $unwind: '$enrolledClasses' },
+        { $sort: { enrolledClasses: -1 } },
+        { $group: { _id: '$_id', enrolledClasses: { $push: '$enrolledClasses' } } },
+      ]).toArray();
+      res.send(pipeline);
     })
     // saved user when first time registration
     app.post('/users', async (req, res) => {
@@ -139,16 +151,16 @@ async function run() {
       res.send(result)
     })
     // add payments details 
-    app.post('/payments', verifyJWT, async(req, res) => {
+    app.post('/payments', verifyJWT, async (req, res) => {
       const details = req.body;
       const result = await payments.insertOne(details);
       res.send(result)
     })
     // process payment intent
     app.post('/create-payment-intent', verifyJWT, async (req, res) => {
-      const {price} = req.body;
-      if(!price){
-        return res.send({message: 'Price not valid'})
+      const { price } = req.body;
+      if (!price) {
+        return res.send({ message: 'Price not valid' })
       }
       const amount = price * 100;
       const paymentIntent = await stripe.paymentIntents.create({
@@ -185,31 +197,31 @@ async function run() {
 
     })
     // update info after payment 
-    app.patch('/payments', verifyJWT, async(req, res,)=>{
-      const student = await users.findOne({email: req.body.email});
-      const selectedClass = await classes.findOne({_id: new ObjectId(req.body.class_id)});
-      const instructor = await users.findOne({email: selectedClass.instructor_email});
+    app.patch('/payments', verifyJWT, async (req, res,) => {
+      const student = await users.findOne({ email: req.body.email });
+      const selectedClass = await classes.findOne({ _id: new ObjectId(req.body.class_id) });
+      const instructor = await users.findOne({ email: selectedClass.instructor_email });
       const updatedStudent = {
-        $set:{
-          selectedClasses :  [...req.body.remainingClasses],
-          enrolledClasses : student.enrolledClasses ? [...student?.enrolledClasses, req.body.class_id] : [req.body.class_id],
+        $set: {
+          selectedClasses: [...req.body.remainingClasses],
+          enrolledClasses: student.enrolledClasses ? [...student?.enrolledClasses, req.body.class_id] : [req.body.class_id],
         }
       }
       const updatedInst = {
-        $set:{
-          total_student : parseInt(instructor.total_student)+1,
+        $set: {
+          total_student: parseInt(instructor.total_student) + 1,
         }
       }
       const updatedClass = {
         $set: {
           available_seats: parseInt(selectedClass?.available_seats) - 1,
-          number_of_students : parseInt(selectedClass.number_of_students)+1,
+          number_of_students: parseInt(selectedClass.number_of_students) + 1,
         }
       }
-      const updateStudent = await users.updateOne({email: req.body.email}, updatedStudent);
-      const updateInst = await users.updateOne({email: selectedClass?.instructor_email}, updatedInst);
-      const updateClass = await classes.updateOne({_id: new ObjectId(req.body.class_id)}, updatedClass);
-      res.send({updateClass, updateStudent, updateInst})
+      const updateStudent = await users.updateOne({ email: req.body.email }, updatedStudent);
+      const updateInst = await users.updateOne({ email: selectedClass?.instructor_email }, updatedInst);
+      const updateClass = await classes.updateOne({ _id: new ObjectId(req.body.class_id) }, updatedClass);
+      res.send({ updateClass, updateStudent, updateInst })
     })
     // update user role
     app.put('/users/:id', async (req, res) => {
@@ -239,17 +251,17 @@ async function run() {
     })
     // select class by user
     app.put('/select-class', verifyJWT, async (req, res) => {
-      const student = await users.findOne({email: req.query.user});
+      const student = await users.findOne({ email: req.query.user });
       const updatedStudent = {
-        $set:{
-          selectedClasses : student.selectedClasses ? [...student?.selectedClasses, req.query.classid] : [req.query.classid],
+        $set: {
+          selectedClasses: student.selectedClasses ? [...student?.selectedClasses, req.query.classid] : [req.query.classid],
         }
       }
-      const updateStudent = await users.updateOne({email: req.query.user}, updatedStudent);
-      res.send({ updateStudent})
+      const updateStudent = await users.updateOne({ email: req.query.user }, updatedStudent);
+      res.send({ updateStudent })
     })
     // update after delete selected classes
-    app.put('/selected-classes/:email', verifyJWT, async(req, res)=>{
+    app.put('/selected-classes/:email', verifyJWT, async (req, res) => {
       const newSelectedClasses = req.body;
       const email = req.params.email;
       const updatedStudent = {
@@ -257,21 +269,21 @@ async function run() {
           selectedClasses: newSelectedClasses,
         }
       }
-      const result = await users.updateOne({email: email}, updatedStudent);
+      const result = await users.updateOne({ email: email }, updatedStudent);
       res.send(result)
     })
     // update instructor details when add new class
-    app.put('/instructors/:email', async(req, res)=>{
+    app.put('/instructors/:email', async (req, res) => {
       const email = req.params.email;
-      const {name} = req.body;
-      const instructor = await users.findOne({email: email});
+      const { name } = req.body;
+      const instructor = await users.findOne({ email: email });
       const updatedInfo = {
-        $set:{
+        $set: {
           name_of_classes: [...instructor.name_of_classes, name],
           number_of_classes: parseInt(instructor.number_of_classes) + 1,
         }
       }
-      const result = await users.updateOne({email: email}, updatedInfo);
+      const result = await users.updateOne({ email: email }, updatedInfo);
       res.send(result);
     })
     // user delete
