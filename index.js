@@ -4,6 +4,7 @@ const cors = require('cors');
 require('dotenv').config()
 const port = process.env.PORT || 5000;
 var jwt = require('jsonwebtoken');
+const stripe = require("stripe")(process.env.PAYMENT_SK);
 
 app.use(cors());
 app.use(express.json());
@@ -84,7 +85,7 @@ async function run() {
       res.send(result);
     })
     // get approved classes
-    app.get('/allclass/:status', verifyJWT, verifyAdmin, async (req, res) => {
+    app.get('/allclass/:status', async (req, res) => {
       const status = req.params.status;
       if (status === 'all') {
         const result = await classes.find().toArray();
@@ -101,9 +102,16 @@ async function run() {
       res.send(result);
     })
     // get specific user 
-    app.get('/users/:email', async (req, res) => {
+    app.get('/users/:email',verifyJWT, async (req, res) => {
       const result = await users.findOne({email: req.params.email});
       res.send(result);
+    })
+    // get specific class by id
+    app.get('/selected-classes/:id',verifyJWT, async (req,res) => {
+      const id = req.params.id;
+      const singleClass = await classes.findOne({_id: new ObjectId(id)});
+      const {price} = singleClass;
+      res.send({price})
     })
     // send jwt token
     app.post('/jwt', (req, res) => {
@@ -128,6 +136,22 @@ async function run() {
       const newClass = req.body;
       const result = await classes.insertOne(newClass);
       res.send(result)
+    })
+    // process payment intent
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const {price} = req.body;
+      if(!price){
+        return res.send({message: 'Price not valid'})
+      }
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      })
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     })
     // update class status
     app.patch('/allclass/:id', async (req, res) => {
@@ -222,7 +246,6 @@ async function run() {
     app.put('/instructors/:email', async(req, res)=>{
       const email = req.params.email;
       const {name} = req.body;
-      console.log(email, name)
       const instructor = await users.findOne({email: email});
       const updatedInfo = {
         $set:{
@@ -238,7 +261,6 @@ async function run() {
       const result = await users.deleteOne({ _id: new ObjectId(req.params.id) })
       res.send(result);
     })
-    // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
