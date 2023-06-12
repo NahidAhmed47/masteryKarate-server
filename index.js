@@ -18,10 +18,12 @@ const verifyJWT = (req, res, next) => {
   const token = authorization.split(' ')[1];
   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
     if (err) {
-      res.status(401).send({ error: true, message: 'unauthorized access' });
+      return res.status(401).send({ error: true, message: 'unauthorized access' });
     }
-    req.decoded = decoded;
-    next();
+    else{
+      req.decoded = decoded;
+      next();
+    }
   })
 }
 
@@ -122,8 +124,8 @@ async function run() {
     })
     // send jwt token
     app.post('/jwt', (req, res) => {
-      const email = req.body.email;
-      const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' });
+      const user = req.body;
+      const token = jwt.sign( user , process.env.ACCESS_TOKEN, { expiresIn: '1h' });
       res.send({ token });
     })
     // get enrolled classes
@@ -297,8 +299,8 @@ async function run() {
       const result = await users.deleteOne({ _id: new ObjectId(req.params.id) })
       res.send(result);
     })
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
