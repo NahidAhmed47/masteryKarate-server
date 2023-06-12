@@ -82,9 +82,14 @@ async function run() {
       res.send({ role })
     })
     // get instructor classes
-    app.get('/classes/:email', verifyJWT, verifyInstructor, async (req, res) => {
+    app.get('/classes/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const result = await classes.find({ instructor_email: email }).toArray();
+      res.send(result);
+    })
+    // get popular classes
+    app.get('/popular-classes', async (req, res) => {
+      const result = await classes.find().sort({number_of_students: -1}).limit(6).toArray();
       res.send(result);
     })
     // get approved classes
@@ -100,7 +105,7 @@ async function run() {
       }
     })
     // get all users
-    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
+    app.get('/users', verifyJWT, async (req, res) => {
       const result = await users.find().toArray();
       res.send(result);
     })
@@ -153,7 +158,7 @@ async function run() {
       }
     })
     // add class 
-    app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
+    app.post('/classes', verifyJWT, async (req, res) => {
       const newClass = req.body;
       const result = await classes.insertOne(newClass);
       res.send(result)
